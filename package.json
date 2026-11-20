@@ -1,0 +1,77 @@
+{
+  "name": "whispertext",
+  "productName": "whispertext",
+  "version": "1.0.0",
+  "description": "Diktieren in jeder App auf dem Mac: fn halten, sprechen, loslassen. Lokal mit Parakeet, optional geglättet mit dem eigenen Claude.",
+  "private": true,
+  "type": "module",
+  "main": "main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "check": "for f in main/*.js core/*.js ui/*.js ui/lib/*.js scripts/*.mjs; do node --check \"$f\" || exit 1; done",
+    "build:mac-helper": "bash native/mac/build.sh",
+    "build:parakeet": "bash native/parakeet/build-direct.sh",
+    "dist:mac": "bash scripts/build-mac.sh"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "26.17.0"
+  },
+  "optionalDependencies": {
+    "uiohook-napi": "1.5.5"
+  },
+  "build": {
+    "appId": "de.studyacademy.whispertext",
+    "productName": "whispertext",
+    "copyright": "Studyacademy",
+    "asar": false,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "package.json",
+      "main/**",
+      "core/**",
+      "ui/**"
+    ],
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.productivity",
+      "identity": null,
+      "target": [
+        "dir"
+      ],
+      "extraResources": [
+        {
+          "from": "native/mac/bin/studymut-keys",
+          "to": "whispertext-keys"
+        },
+        {
+          "from": "native/mac/bin/studymut-parakeet",
+          "to": "whispertext-parakeet"
+        },
+        {
+          "from": "native/models/parakeet-tdt-0.6b-v3",
+          "to": "models/parakeet-tdt-0.6b-v3"
+        },
+        {
+          "from": "native/parakeet/vendor/LICENSE-FluidAudio",
+          "to": "licenses/FluidAudio-APACHE-2.0.txt"
+        },
+        {
+          "from": "native/parakeet/PROVENANCE.md",
+          "to": "licenses/Parakeet-ATTRIBUTION.md"
+        }
+      ],
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "whispertext nimmt nur auf, während du diktierst. Erkannt wird auf diesem Mac.",
+        "LSUIElement": true
+      },
+      "artifactName": "whispertext-macOS-${arch}.${ext}"
+    }
+  },
+  "dependencies": {}
+}

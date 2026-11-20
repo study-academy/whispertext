@@ -1,0 +1,6 @@
+:root{font:15px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;color:#1d1d1f;color-scheme:light}
+    html,body{margin:0;height:100%;background:transparent;overflow:hidden}
+    /* On the Mac's frosted glass (main.js, practice window): only a field to dictate into. */
+    textarea{box-sizing:border-box;width:100%;height:100%;margin:0;padding:22px 26px;border:0;outline:0;resize:none;background:#ffffff40;
+      font:inherit;color:#1d1d1f}
+    textarea::placeholder{color:#86868b}

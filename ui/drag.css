@@ -1,0 +1,11 @@
+:root{font:12px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;color:#1d1d1f;color-scheme:light}
+html,body{margin:0;height:100%;background:transparent;overflow:hidden;user-select:none}
+/* On the Mac's frosted glass (main/drag-helper.js), beside System Settings: an arrow to the list, the icon to drag. */
+.card{position:absolute;inset:0;display:flex;align-items:center;gap:10px;padding:0 16px 0 10px;background:#dcdce166;-webkit-app-region:drag}
+.arrow{width:20px;height:20px;flex:none;fill:none;stroke:#1d1d1f;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;animation:point 1.4s ease-in-out infinite}
+#icon{width:48px;height:48px;flex:none;cursor:grab;-webkit-app-region:no-drag}
+#icon:active{cursor:grabbing}
+b{display:block;font-weight:600;margin-bottom:2px}
+span{color:#3a3a3c}
+@keyframes point{0%,100%{transform:translateX(0)}50%{transform:translateX(-5px)}}
+@media (prefers-reduced-motion:reduce){.arrow{animation:none}}

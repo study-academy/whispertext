@@ -1,0 +1,37 @@
+/* How everything in Studymut moves (docs/bewegung.md). One set of times and curves for every surface, so the
+   whole app feels like one thing: soft, alive and never abrupt. Loaded by every page before its own styles.
+
+   The rules in short:
+   1. A surface opens first, what it holds follows a moment later, one piece after the other. Nothing is ever
+      seen outside its surface or at the wrong size.
+   2. Leaving is quicker than arriving: what a surface holds fades, then the surface closes.
+   3. Surfaces and Studymut move on springs (they overshoot a little and settle); text only fades and rises.
+   4. A thing that stays stays: it is never taken away and put back when only its state changes.
+   5. What is pressed gives way a little and springs back. */
+:root{
+  --quick:150ms;            /* leaving, pressing, small changes of colour */
+  --move:280ms;             /* fading in, short ways */
+  --morph:620ms;            /* a surface changing size or shape, on a spring */
+  --after:130ms;            /* how long what a surface holds waits for the surface */
+  --step:55ms;              /* between one piece and the next */
+  --ease-out:cubic-bezier(.22,1,.36,1);
+  --ease-in-out:cubic-bezier(.65,0,.35,1);
+  --ease-in:cubic-bezier(.4,0,1,1);
+  /* Damped springs as CSS linear(), settled at the end of the time. soft: surfaces (2 % over). spring: pills,
+     buttons, Studymut (8 % over). bouncy: a small celebration (18 % over), rarely. */
+  --soft:linear(0, 0.0304, 0.1058, 0.2065, 0.3184, 0.4313, 0.5384, 0.6356, 0.7207, 0.7929, 0.8526, 0.9004, 0.9378, 0.9661, 0.9867, 1.0011, 1.0106, 1.0163, 1.0191, 1.0199, 1.0193, 1.0178, 1.0158, 1.0136, 1.0113, 1.0092, 1.0072, 1.0056, 1.0041, 1.0029, 1);
+  --spring:linear(0, 0.047, 0.162, 0.3122, 0.4726, 0.6257, 0.7604, 0.8712, 0.9561, 1.0165, 1.0553, 1.0762, 1.0834, 1.0808, 1.072, 1.0599, 1.0465, 1.0335, 1.0219, 1.0123, 1.0048, 0.9994, 0.9959, 0.9939, 0.9931, 0.9932, 0.9938, 0.9948, 0.9959, 0.997, 1);
+  /* swing: the strich growing into the centre or the pill (5 % over; decisions 1c, 1d). */
+  --swing:linear(0, 0.072, 0.2343, 0.4258, 0.6087, 0.7627, 0.8803, 0.9619, 1.0127, 1.0396, 1.0494, 1.0485, 1.0416, 1.0322, 1.0228, 1.0145, 1.0079, 1.0032, 1.0001, 0.9984, 0.9976, 0.9975, 0.9978, 0.9982, 0.9987, 0.9991, 0.9995, 0.9998, 0.9999, 1.0001, 1);
+  --bouncy:linear(0, 0.0731, 0.2497, 0.4717, 0.6939, 0.8858, 1.0309, 1.1245, 1.1705, 1.1782, 1.1589, 1.1241, 1.0836, 1.0448, 1.0125, 0.989, 0.9746, 0.9685, 0.9686, 0.973, 0.9797, 0.987, 0.9937, 0.9991, 1.0028, 1.005, 1.0057, 1.0055, 1.0045, 1.0033, 1);
+}
+/* Pressing: everything that can be pressed gives way a little and springs back. */
+button{transition:transform var(--move) var(--spring),box-shadow var(--quick) ease-out,background-color var(--quick) ease-out,opacity var(--quick) ease-out}
+button:active:not(:disabled){transform:scale(.95);transition-duration:70ms}
+/* What comes into a surface: fades and rises a little, after the surface. --i counts the pieces. */
+@keyframes come{from{opacity:0;transform:translateY(5px)}}
+@keyframes come-pop{from{opacity:0;transform:scale(.6)}}
+.comes{animation:come var(--move) var(--ease-out) calc(var(--after) + var(--i,0) * var(--step)) backwards}
+@media (prefers-reduced-motion:reduce){
+  :root{--morph:1ms;--move:1ms;--after:0ms;--step:0ms}
+}

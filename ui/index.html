@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>whispertext</title>
+  <link rel="stylesheet" href="motion.css">
+  <link rel="stylesheet" href="notch.css">
+  <script type="module" src="notch.js"></script>
+</head>
+<body data-mode="rest">
+  <div id="handle" role="status" aria-label="Diktatstatus">
+    <!-- Hands-free (fn twice): the strich opens into the dark row with cancel, the voice and done. -->
+    <button id="free-cancel" class="free-button" type="button" tabindex="-1" aria-label="Verwerfen"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
+    <span class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+    <button id="free-done" class="free-button done" type="button" tabindex="-1" aria-label="Fertig"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></button>
+    <span class="notice"><span id="notice-text" aria-live="polite"></span></span>
+    <!-- Beside the strich: takes back what was just learned, or inserts a dictation that was thrown away. -->
+    <span id="notice-backs"></span>
+  </div>
+
+  <!-- The same dark row: on hover two icons, opened it grows down into the history or the words; a missing
+       permission and the intro show here too, one step at a time. -->
+  <section id="row" aria-label="whispertext">
+    <header class="icons">
+      <button class="ico" data-page="history" aria-label="Verlauf" title="Verlauf"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></button>
+      <button id="missing-dot" class="dot-button" aria-label="Freigabe fehlt" title="Freigabe fehlt" hidden></button>
+      <button class="ico" data-page="words" aria-label="Wörter" title="Wörter"><svg viewBox="0 0 24 24"><path d="M3.5 18l4-11 4 11M5 14h5"/><path d="M20.5 18v-5.5a3 3 0 0 0-6 0M14.5 15.5a3 3 0 1 0 6 0"/></svg></button>
+    </header>
+    <!-- In the intro: one line about what this place is, and "Weiter". -->
+    <div id="intro-tip" hidden><span id="intro-text"></span><span class="progress small" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><button id="intro-next" class="allow">Weiter</button></div>
+    <div id="search" hidden><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><input id="search-field" autocomplete="off" spellcheck="false" aria-label="Suchen"></div>
+    <div id="history" class="list"></div>
+    <div id="words" class="list">
+      <form id="word-form">
+        <input id="heard-field" autocomplete="off" spellcheck="false" placeholder="Gehört" aria-label="Was gehört wird (leer für ein einzelnes Wort)">
+        <input id="word-field" autocomplete="off" spellcheck="false" placeholder="Wird zu" aria-label="Was whispertext schreibt">
+        <button type="submit" hidden></button>
+      </form>
+      <div id="word-list"></div>
+    </div>
+    <div id="step">
+      <span class="progress" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      <span id="step-body"></span>
+      <span id="step-ok" aria-label="Geklappt"></span>
+      <button id="step-action" class="allow"></button>
+      <button id="step-drag" class="quiet" hidden>Hineinziehen</button>
+    </div>
+  </section>
+</body>
+</html>
