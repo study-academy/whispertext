@@ -1,6 +1,80 @@
-:root{font:15px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;color:#1d1d1f;color-scheme:light}
-    html,body{margin:0;height:100%;background:transparent;overflow:hidden}
-    /* On the Mac's frosted glass (main.js, practice window): only a field to dictate into. */
-    textarea{box-sizing:border-box;width:100%;height:100%;margin:0;padding:22px 26px;border:0;outline:0;resize:none;background:#ffffff40;
-      font:inherit;color:#1d1d1f}
-    textarea::placeholder{color:#86868b}
+:root{font:15px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;color:#1d1d1f;color-scheme:light;--blue:#0a84ff}
+html,body{margin:0;height:100%;background:transparent;overflow:hidden}
+body{display:flex;flex-direction:column}
+/* On the Mac's frosted glass (main.js, practice window): a field to dictate into, and the keys below it. */
+textarea{box-sizing:border-box;flex:1;width:100%;margin:0;padding:20px 26px 8px;border:0;outline:0;resize:none;background:#ffffff40;
+  font:inherit;color:#1d1d1f}
+textarea::placeholder{color:#86868b}
+
+/* The close-up: light keys with a soft shadow, no borders; the right edge fades out. */
+#keys{display:block;width:100%;height:230px;background:#00000012;flex:none;overflow:hidden;
+  -webkit-mask-image:linear-gradient(90deg,#000 70%,transparent 98%)}
+.cap rect{fill:#fbfbfd;filter:url(#soft)}
+.cap text{font:500 13px -apple-system,BlinkMacSystemFont,sans-serif;fill:#00000059}
+.cap text.c{text-anchor:middle}
+.cap text.s{font-size:11px}
+.cap text.e{text-anchor:end}
+.cap{transform-box:fill-box;transform-origin:center}
+
+/* One scene at a time, zooming in when it comes. */
+.scene{display:none;transform-origin:20% 60%}
+body[data-step="1"] .bottom,body[data-step="2"] .bottom,body[data-step="3"] .bottom{display:inline;animation:zoom-in .9s cubic-bezier(.2,.8,.2,1) both}
+body[data-step="4"] .top{display:inline;animation:zoom-in .9s cubic-bezier(.2,.8,.2,1) both}
+body[data-step="1"] .bottom,body[data-step="2"] .bottom{transform-origin:12% 60%}
+@keyframes zoom-in{from{transform:scale(.82);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* The keys of the step are clear; the others step back. */
+body[data-step="1"] .k-fn text,body[data-step="2"] .k-fn text,
+body[data-step="3"] :is(.k-ctrl,.k-cmd,.k-v) text,body[data-step="4"] .k-caret text{fill:#1d1d1f}
+body[data-step="1"] .k-fn rect,body[data-step="2"] .k-fn rect,
+body[data-step="3"] :is(.k-ctrl,.k-cmd,.k-v) rect,body[data-step="4"] .k-caret rect{fill:#fff}
+
+/* Blue: where to press. */
+.ring,.ripple{fill:none;stroke:var(--blue);stroke-width:2.5;opacity:0;transform-box:fill-box;transform-origin:center}
+.ripple{fill:#0a84ff26}
+
+/* The hand only where the little finger does the work (fn). */
+.hand{display:none;transform-box:fill-box}
+body[data-step="1"] .hand,body[data-step="2"] .hand{display:inline}
+.hand-shape{fill:url(#skin);stroke:#b0b0b6;stroke-width:.7;stroke-linejoin:round;filter:url(#volume)}
+.hand-shadow{fill:#00000038;transform:translate(2px,5px);filter:url(#lift)}
+.hand{opacity:.92}
+.hand-detail{opacity:.85}
+.tendon{fill:none;stroke:#a5a5ac;stroke-width:.8;opacity:.6}
+.nail{fill:url(#nail);stroke:#a9a9af;stroke-width:.6;stroke-linejoin:round;filter:url(#soft)}
+.nail-edge{fill:none;stroke:#ffffffcc;stroke-width:1.1;stroke-linecap:round}
+.crease{fill:none;stroke:#9a9aa1;stroke-width:.6;stroke-linecap:round;opacity:.75}
+.knuckle{fill:#bdbdc3;opacity:.55}
+.hand-text{font:600 12px -apple-system,BlinkMacSystemFont,sans-serif;fill:#2c2c30;text-anchor:middle}
+
+/* 1: the little finger presses fn and holds it; the ring fills while it is held. */
+body[data-step="1"] .hand{animation:press-hold 3s ease-in-out infinite}
+body[data-step="1"] .k-fn{animation:key-hold 3s ease-in-out infinite}
+body[data-step="1"] .hold{stroke-dasharray:158;stroke-dashoffset:158;transform:rotate(-90deg);animation:fill-hold 3s ease-in-out infinite}
+@keyframes press-hold{0%,10%,80%,100%{transform:none}18%,72%{transform:translate(-1px,4px)}}
+@keyframes key-hold{0%,14%,78%,100%{transform:none}20%,72%{transform:scale(.95)}}
+@keyframes fill-hold{0%,16%{opacity:0;stroke-dashoffset:158}20%{opacity:1;stroke-dashoffset:158}70%{opacity:1;stroke-dashoffset:0}80%,100%{opacity:0;stroke-dashoffset:0}}
+
+/* 2: two quick taps on fn, a blue circle for each. */
+body[data-step="2"] .hand{animation:press-twice 2.6s ease-in-out infinite}
+body[data-step="2"] .k-fn{animation:key-twice 2.6s ease-in-out infinite}
+body[data-step="2"] .tap1{animation:spread 2.6s ease-out infinite}
+body[data-step="2"] .tap2{animation:spread 2.6s ease-out infinite;animation-delay:.36s}
+@keyframes press-twice{0%,8%,20%,22%,34%,100%{transform:none}12%,16%,26%,30%{transform:translate(-1px,4px)}}
+@keyframes key-twice{0%,9%,19%,23%,33%,100%{transform:none}12%,16%,26%,30%{transform:scale(.95)}}
+@keyframes spread{0%,10%{opacity:0;transform:scale(.4)}13%{opacity:1;transform:scale(.6)}40%,100%{opacity:0;transform:scale(1.35)}}
+
+/* 3: ⌃ and ⌘ held (their rings fill), then V tapped. */
+body[data-step="3"] :is(.k-ctrl,.k-cmd){animation:key-hold 3s ease-in-out infinite}
+body[data-step="3"] .k-v{animation:key-v 3s ease-in-out infinite}
+body[data-step="3"] :is(.chord-ctrl,.chord-cmd){animation:chord-ring 3s ease-in-out infinite}
+body[data-step="3"] .chord-v{animation:spread-late 3s ease-out infinite}
+@keyframes chord-ring{0%,14%,80%,100%{opacity:0}20%,72%{opacity:1}}
+@keyframes key-v{0%,40%,54%,100%{transform:none}44%,50%{transform:scale(.95)}}
+@keyframes spread-late{0%,40%{opacity:0;transform:scale(.4)}44%{opacity:1;transform:scale(.6)}70%,100%{opacity:0;transform:scale(1.35)}}
+
+/* 4: the key left of 1, tapped once: the emojis open. */
+body[data-step="4"] .k-caret{animation:key-twice 2.6s ease-in-out infinite}
+body[data-step="4"] .caret{animation:spread 2.6s ease-out infinite}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important}.ring{opacity:1}}

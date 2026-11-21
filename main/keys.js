@@ -65,7 +65,7 @@ export class Keys {
   // buttons or Escape end it.
   startHandsFree() { this.#apply(this.chord.lockTalk(seconds())); }
   // The notch left talking and dictating: a hands-free lock that is still set must not swallow the next keys.
-  release(mode = null) { this.chord.release(mode); }
+  release(mode = null) { this.chord.release(mode); if (this.chord.state.name !== 'locked') this.#ownReturn(false); }
   finishHandsFree() { this.#apply(this.chord.finishLocked()); }
 
   askInput() { this.helper?.stdin.write('ask-input\n'); }
@@ -220,7 +220,11 @@ export class Keys {
       return;
     }
     if (effect.type !== 'none') this.onGesture(effect);
+    // Return belongs to the dictation only while it runs hands-free.
+    if (effect.type === 'begin' && effect.locked) this.#ownReturn(true);
+    else if (['finish', 'cancel'].includes(effect.type) || this.chord.state.name !== 'locked') this.#ownReturn(false);
   }
+  #ownReturn(on) { if (this.returnOwned === on) return; this.returnOwned = on; try { this.helper?.stdin?.write(on ? 'return-own-on\n' : 'return-own-off\n'); } catch {} }
 
   // Whether the fn key is Studymut's alone (the helper then keeps its presses from macOS).
   // The key left of 1 as the emoji key (by choice in the settings).
@@ -248,6 +252,10 @@ export class Keys {
       try { event = JSON.parse(line); } catch { return; }
       if (event.type === 'flags') this.#apply(this.chord.flagsChanged(mapFlags(event, this.holdKey), seconds()));
       else if (event.type === 'front') this.onFront?.(event);
+      else if (event.type === 'emoji-key') this.onEmojiKey?.(event);
+      // Return during a hands-free dictation: done, like ✓ (the helper keeps it from the app in front).
+      // If the dictation already ended some other way, the key goes on to the app after all.
+      else if (event.type === 'return') { if (this.chord.state.name === 'locked') this.finishHandsFree(); else { this.#ownReturn(false); this.key('return'); } }
       else if (event.type === 'key') { this.onKey?.(event); if (event.escape) this.onEscape(); this.#apply(this.chord.keyDown()); }
       else if (event.type === 'permissions') {
         const checked = {...event, checkedAt: Date.now()};

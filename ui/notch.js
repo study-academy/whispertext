@@ -175,8 +175,10 @@ const STEPS = {
   1: {html: `${KEY('fn')} halten und sprechen`, field: true, at: 2},
   2: {html: `2× ${KEY('fn')} für freies Sprechen · ${KEY('⏎')} fertig · ${KEY('esc')} verwerfen`, field: true, at: 3},
   3: {html: `${KEY('⌃')}${KEY('⌘')}${KEY('V')} fügt es nochmal ein`, field: true, at: 4},
-  4: {tip: 'Das ist dein Verlauf.<br>Hier findest du vergangene Texte wieder.', at: 5},
-  5: {tip: 'Das ist der Wörterbereich.<br>whispertext lernt automatisch dazu.<small>Auch längere Texte, die du oft brauchst, hier speichern und mit einem Wort einfügen.</small>', at: 6},
+  // fn is dictation now, so the emojis moved to the key left of 1; ^ and ° are reached with ⌘.
+  4: {html: `Emojis jetzt mit ${KEY('^')} statt ${KEY('fn')} · ${KEY('⌘')}${KEY('^')} schreibt ^ · ${KEY('⌘')}${KEY('⇧')}${KEY('^')} schreibt °`, field: true, action: 'Weiter', at: 5},
+  5: {tip: 'Das ist dein Verlauf.<br>Hier findest du vergangene Texte wieder.', at: 6},
+  6: {tip: 'Das ist der Wörterbereich.<br>whispertext lernt automatisch dazu.<small>Auch längere Texte, die du oft brauchst, hier speichern und mit einem Wort einfügen.</small>', at: 7},
 };
 function renderStep() {
   const key = state.missing ?? (state.intro || null);
@@ -186,9 +188,9 @@ function renderStep() {
   if (state.introOk) body.dataset.ok = ''; else delete body.dataset.ok;
   // The history and the words in the intro: the opened row with one line about it on top.
   $('intro-tip').hidden = !step?.tip;
-  if (step?.tip) $('intro-text').innerHTML = key === 4 && state.imported?.history
+  if (step?.tip) $('intro-text').innerHTML = key === 5 && state.imported?.history
     ? `Das ist dein Verlauf.<br>Wir haben ${state.imported.history.toLocaleString('de-DE')} Diktate aus Wispr Flow übernommen. Hier findest du sie und alle neuen wieder.`
-    : key === 5 && state.imported?.words
+    : key === 6 && state.imported?.words
     ? `Das ist der Wörterbereich.<br>Wir haben ${state.imported.words} Wörter aus Wispr Flow erkannt und bereits in dein Wörterbuch importiert.<small>Auch längere Texte, die du oft brauchst, hier speichern und mit einem Wort einfügen.</small>`
     : step.tip;
   // Each row of dots counts on its own (the intro line has its own copy).
@@ -206,10 +208,10 @@ function renderStep() {
   $('step-drag').textContent = step.waiting ?? '';
 }
 $('intro-next').addEventListener('click', () => api.introNext());
-$('step-action').addEventListener('click', () => { if (state.missing) api.permissionAction(state.missing).catch(() => {}); });
+$('step-action').addEventListener('click', () => { if (state.missing) api.permissionAction(state.missing).catch(() => {}); else if (state.intro) api.introNext(); });
 $('step-drag').addEventListener('click', () => api.permissionDrag());
 // In the intro the words field is ready to type into.
-api.onState(next => { if (next.intro === 5 && next.mode === 'open') setTimeout(() => $('heard-field').focus(), 300); });
+api.onState(next => { if (next.intro === 6 && next.mode === 'open') setTimeout(() => $('heard-field').focus(), 300); });
 
 /* ---------- Notices: one short line under the notch ---------- */
 const NOTICES = {

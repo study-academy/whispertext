@@ -59,6 +59,8 @@ var swallowFn = true
 // By choice (settings, "Emoji-Taste"): the key left of 1 on an ISO keyboard (^ and ° on a German one) opens the emoji
 // picker while Studymut runs. With Command it still writes ^, with Command and Shift °; with Shift alone it does nothing.
 var emojiKey = false
+// While a hands-free dictation runs, Return is its ✓: it ends the dictation instead of reaching the app in front.
+var ownReturn = false
 let ISO_SECTION_KEY: Int64 = 10
 
 func postPlain(_ text: String) {
@@ -96,13 +98,18 @@ func startTap() -> Bool {
                   "device": Int(f.rawValue & 0xFFFF)])
             let code = event.getIntegerValueField(.keyboardEventKeycode)
             if swallowFn && (code == 63 || code == 179) { return nil }
+        case .keyUp where ownReturn && [36, 76].contains(event.getIntegerValueField(.keyboardEventKeycode)):
+            return nil
+        case .keyDown where ownReturn && [36, 76].contains(event.getIntegerValueField(.keyboardEventKeycode)):
+            if event.getIntegerValueField(.keyboardEventAutorepeat) == 0 { emit(["type": "return"]) }
+            return nil
         case .keyUp:
             if emojiKey && event.getIntegerValueField(.keyboardEventKeycode) == ISO_SECTION_KEY { return nil }
         case .keyDown where emojiKey && event.getIntegerValueField(.keyboardEventKeycode) == ISO_SECTION_KEY:
             if event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
                 let f = event.flags
                 if f.contains(.maskCommand) { postPlain(f.contains(.maskShift) ? "°" : "^") }
-                else if !f.contains(.maskShift) { postEmojiPicker() }
+                else if !f.contains(.maskShift) { postEmojiPicker(); emit(["type": "emoji-key"]) }
             }
             return nil
         case .keyDown where [63, 179].contains(event.getIntegerValueField(.keyboardEventKeycode)):
@@ -931,6 +938,8 @@ var lastHapticAt = -Double.infinity
 func handle(_ command: String) {
     if command == "fn-swallow" { swallowFn = true; return }
     if command == "fn-keep" { swallowFn = false; return }
+    if command == "return-own-on" { ownReturn = true; return }
+    if command == "return-own-off" { ownReturn = false; return }
     if command == "emoji-key-on" { emojiKey = true; return }
     if command == "emoji-key-off" { emojiKey = false; return }
     if command.hasPrefix("permissions ") {

@@ -580,5 +580,5 @@ body[data-ok] #step-body,body[data-ok] #step-action{opacity:.35}
 #intro-text{line-height:1.45}
 #intro-text small{display:block;margin-top:6px;font-size:11px;color:var(--glass-quiet)}
 /* In the intro the place being shown lights up; the other icon steps back. */
-body[data-step="4"] .ico[data-page=history],body[data-step="5"] .ico[data-page=words]{background:#fff;color:var(--glass-ink);box-shadow:0 0 0 .5px #0000000f,0 0 14px #ffffffd9,0 2px 6px #00000014}
-body[data-step="4"] .ico[data-page=words],body[data-step="5"] .ico[data-page=history]{color:#00000038;background:transparent}
+body[data-step="5"] .ico[data-page=history],body[data-step="6"] .ico[data-page=words]{background:#fff;color:var(--glass-ink);box-shadow:0 0 0 .5px #0000000f,0 0 14px #ffffffd9,0 2px 6px #00000014}
+body[data-step="5"] .ico[data-page=words],body[data-step="6"] .ico[data-page=history]{color:#00000038;background:transparent}

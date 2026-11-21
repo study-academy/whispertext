@@ -16,7 +16,7 @@ export class DragHelper {
     if (process.platform !== 'darwin') return;
     if (!this.win || this.win.isDestroyed()) {
       // The same frosted glass as the row under the notch.
-      this.win = new BrowserWindow({width: WIDTH, height: HEIGHT, frame: false, transparent: false, vibrancy: 'menu', visualEffectState: 'active', roundedCorners: true,
+      this.win = new BrowserWindow({width: WIDTH, height: HEIGHT, type: process.platform === 'darwin' ? 'panel' : undefined, frame: false, transparent: false, vibrancy: 'menu', visualEffectState: 'active', roundedCorners: true,
         resizable: false, movable: true, focusable: true, skipTaskbar: true, alwaysOnTop: true, hasShadow: true, show: false, backgroundColor: '#00000000',
         webPreferences: {contextIsolation: true, nodeIntegration: false, sandbox: true, preload: this.preload}});
       this.win.setAlwaysOnTop(true, 'floating', 1);

@@ -34,8 +34,8 @@ const HOVER_OPEN_MS = NOTCH_TIMINGS.hoverDwell, LEAVE_CLOSE_MS = NOTCH_TIMINGS.l
 const HIDDEN_PREVIEW = process.argv.includes('--hidden-preview') && process.argv.some(arg => arg.startsWith('--dictation-test-profile='));
 const KEEP_OPEN = process.argv.includes('--keep-open');
 const NO_KEYS = process.argv.includes('--no-global-keys');
-// The intro, one step after the other: hold fn, fn twice (and fn to end), ⌃⌘V, the history, the words.
-const INTRO_STEPS = 5;
+// The intro, one step after the other: hold fn, fn twice (and fn to end), ⌃⌘V, the emoji key, the history, the words.
+const INTRO_STEPS = 6;
 
 class Notch {
   constructor({origin, settings}) {
@@ -125,9 +125,9 @@ class Notch {
     if (this.mode === mode) { this.publish(); return; }
     // The setup does not go away by itself while something is missing or the intro runs: after a dictation in the
     // intro the row comes back with the next step.
-    if (mode === 'rest' && this.intro) mode = this.intro >= 4 ? 'open' : 'setup';
+    if (mode === 'rest' && this.intro) mode = this.intro >= 5 ? 'open' : 'setup';
     else if (mode === 'rest' && this.missing() && this.settings.get().permissionSetup.active) mode = 'setup';
-    if (mode === 'open' && this.intro >= 4) this.page = this.intro === 4 ? 'history' : 'words';
+    if (mode === 'open' && this.intro >= 5) this.page = this.intro === 5 ? 'history' : 'words';
     this.mode = mode;
     if (mode !== 'dictate') this.keys?.release();
     if (mode !== 'dictate' && this.pillHitRect) { this.pillHitRect = null; this.syncFocusable(); }
@@ -194,9 +194,9 @@ class Practice {
     if (HIDDEN_PREVIEW) return;
     if (!this.win || this.win.isDestroyed()) {
       const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
-      const width = 460, height = 170;
+      const width = 460, height = 370;
       this.win = new BrowserWindow({width, height, x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + area.height * .38 - height / 2),
-        frame: false, transparent: false, vibrancy: 'menu', visualEffectState: 'active', roundedCorners: true, hasShadow: true, resizable: false,
+        type: process.platform === 'darwin' ? 'panel' : undefined, frame: false, transparent: false, vibrancy: 'menu', visualEffectState: 'active', roundedCorners: true, hasShadow: true, resizable: false,
         minimizable: false, maximizable: false, fullscreenable: false, skipTaskbar: true, alwaysOnTop: true, show: false, backgroundColor: '#00000000',
         webPreferences: {contextIsolation: true, nodeIntegration: false, sandbox: true}});
       this.win.setAlwaysOnTop(true, 'floating', 1);
@@ -204,10 +204,13 @@ class Practice {
       this.win.setVisibleOnAllWorkspaces(true, {visibleOnFullScreen: true, skipTransformProcessType: true});
       this.win.webContents.on('will-navigate', event => event.preventDefault());
       this.win.loadURL(this.origin + '/practice.html');
+      this.win.webContents.on('did-finish-load', () => this.step(this.current));
       this.win.once('ready-to-show', () => this.focus());
     } else this.focus();
   }
   focus() { if (!this.win || this.win.isDestroyed()) return; if (process.platform === 'darwin') app.focus({steal: true}); this.win.show(); this.win.focus(); this.win.webContents.focus(); this.win.webContents.executeJavaScript("document.getElementById('field').focus()").catch(() => {}); }
+  // Under the field a small Mac keyboard shows where the keys of this step are and how to press them.
+  step(step) { this.current = step; if (this.win && !this.win.isDestroyed()) this.win.webContents.executeJavaScript(`document.body.dataset.step = '${Number(step) || 0}'`).catch(() => {}); }
   hide() { if (this.win && !this.win.isDestroyed()) this.win.destroy(); this.win = null; }
 }
 
@@ -232,7 +235,7 @@ class Dim {
     rects.forEach((rect, index) => {
       let win = this.wins[index];
       if (!win || win.isDestroyed()) {
-        win = new BrowserWindow({...rect, frame: false, transparent: false, vibrancy: 'fullscreen-ui', visualEffectState: 'active', hasShadow: false, roundedCorners: false,
+        win = new BrowserWindow({...rect, type: process.platform === 'darwin' ? 'panel' : undefined, frame: false, transparent: false, vibrancy: 'fullscreen-ui', visualEffectState: 'active', hasShadow: false, roundedCorners: false,
           resizable: false, movable: false, focusable: false, skipTaskbar: true, alwaysOnTop: true, show: false, enableLargerThanScreen: true,
           backgroundColor: '#00000000', webPreferences: {contextIsolation: true, nodeIntegration: false, sandbox: true}});
         win.setAlwaysOnTop(true, 'floating', 0);
@@ -348,19 +351,21 @@ else {
       const introNext = step => {
         if (notch.intro !== step || notch.introOk) return;
         // A step that worked shows a small green check in the row for a moment, then the next one comes.
-        if (step <= 3) { notch.introOk = true; notch.publish(); setTimeout(() => { notch.introOk = false; introGo(step); }, 1100); return; }
+        if (step <= 4) { notch.introOk = true; notch.publish(); setTimeout(() => { notch.introOk = false; introGo(step); }, 1100); return; }
         introGo(step);
       };
       const introGo = step => {
         notch.intro = step >= INTRO_STEPS ? 0 : step + 1;
+        // The emoji step only for those whose fn opened the emojis.
+        if (notch.intro === 4 && !keys.emoji) notch.intro = 5;
         syncPractice();
         if (!notch.intro) { settings.update({introDone: true}); permissionFlow.passTest(); notch.setMode('rest'); notch.send('studymut:notice', {kind: 'done'}); }
-        else if (notch.intro >= 4) notch.setMode('open', notch.intro === 4 ? 'history' : 'words');
+        else if (notch.intro >= 5) notch.setMode('open', notch.intro === 5 ? 'history' : 'words');
         else if (notch.mode !== 'dictate') notch.setMode('setup');
         else notch.publish();
       };
       const syncPractice = () => {
-        if (notch.intro >= 1 && notch.intro <= 3 && !notch.missing()) practice.show(); else practice.hide();
+        if (notch.intro >= 1 && notch.intro <= 4 && !notch.missing()) { practice.step(notch.intro); practice.show(); } else practice.hide();
         if (notch.intro >= 1 && !notch.missing()) dim.show(); else if (!following) dim.hide();
       };
       // Whenever something is missing, or the intro has not been done, the row shows that step.
@@ -405,12 +410,17 @@ else {
         onPermissions: permissions => { notch.permissions = permissions; permissionFlow?.setKeys(permissions); },
       });
       notch.keys = keys;
+      // The key left of 1 now opens the emojis (fn belongs to dictation). Pressing it is the intro's fourth step; the
+      // emoji picker opens over the practice field, so a chosen emoji lands there.
+      keys.onEmojiKey = () => { if (notch.intro === 4) { practice.focus(); setTimeout(() => introNext(4), 1200); } };
       // With another app in front the strich is out of sight; it still hears the pointer at the top edge and shows
       // itself when it is needed. On the bare desktop it stays.
       const ownApp = front => !!front && (/whispertext/i.test(front.bundle ?? '') || front.bundle === 'com.github.Electron' || /^(whispertext|Electron)$/i.test(front.name ?? ''));
       keys.onFront = front => notch.setHushed(Boolean(front.bundle) && !ownApp(front) && front.bundle !== 'com.apple.finder' && front.windows !== false);
       // fn only, and fn belongs to dictation: the emoji picker moves to the key left of 1.
-      const checkKeys = () => { keys.holdKey = 'fn'; keys.ownFn(true); keys.emojiKey(true); notch.fnConflict = fnConflict(); };
+      // whispertext is a normal app with a Dock icon now: windows above another app's full screen must be panels.
+      // Only for people who had the emojis on fn: they move to the key left of 1 (^ then comes with ⌘). Everyone else keeps ^.
+      const checkKeys = () => { keys.holdKey = 'fn'; keys.ownFn(true); notch.fnConflict = fnConflict(); keys.emojiKey(notch.fnConflict === 'Emoji anzeigen'); };
       checkKeys();
       setInterval(checkKeys, 60_000).unref();
       const dragHelper = new DragHelper({origin, preload: join(root, 'main', 'preload.cjs'), root});
@@ -582,7 +592,7 @@ else {
         const saved = !heard ? dictation.addWord(text.slice(0, 200))
           : text.length > 60 || text.includes('\n') ? dictation.saveSnippet(heard.slice(0, 80), text, null)
           : dictation.addRule(heard, text.slice(0, 200), 'manual', null, null);
-        if (notch.intro === 5) setTimeout(() => introNext(5), 900);
+        if (notch.intro === 6) setTimeout(() => introNext(6), 900);
         return saved;
       });
       handle('word-remove', (kind, id) => {
@@ -668,7 +678,7 @@ else {
       handle('permission-open', () => { settings.update({permissionSetup: {active: true, completed: false}}); permissionFlow.watch(true, true); notch.setMode('setup'); });
       ipcMain.on('studymut:drag-app', event => { if (event.senderFrame?.url.startsWith(origin + '/')) dragHelper.startDrag(event.sender); });
       handle('intro-skip', () => { notch.intro = INTRO_STEPS; introNext(INTRO_STEPS); });
-      // The history and the words in the intro: "Weiter" goes on.
+      // The emoji key, the history and the words in the intro: "Weiter" goes on.
       handle('intro-next', () => { if (notch.intro >= 4) introNext(notch.intro); });
       // Diagnosis: remember the field in front as a dictation target, as the key does when it goes down.
       handle('target-now', async () => { const capture = keys.captureTarget(); const targetId = keys.targetId; targetCaptures.set(targetId, capture); await capture; return targetId; });

@@ -54,7 +54,7 @@ export class GlassBacking {
 
   #window() {
     if (this.win && !this.win.isDestroyed()) return this.win;
-    this.win = asGlass(new BrowserWindow({...glassOptions(), ...(this.material ? {vibrancy: this.material} : {}), width: 290, height: 32, frame: false, resizable: false, movable: false, focusable: false,
+    this.win = asGlass(new BrowserWindow({...glassOptions(), ...(this.material ? {vibrancy: this.material} : {}), width: 290, height: 32, type: process.platform === 'darwin' ? 'panel' : undefined, frame: false, resizable: false, movable: false, focusable: false,
       minimizable: false, maximizable: false, fullscreenable: false, skipTaskbar: true, show: false, alwaysOnTop: true,
       type: process.platform === 'darwin' ? 'panel' : undefined, webPreferences: {contextIsolation: true, nodeIntegration: false, sandbox: true}}));
     this.win.setAlwaysOnTop(true, 'status');

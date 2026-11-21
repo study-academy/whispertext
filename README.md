@@ -16,12 +16,16 @@ Diktieren auf dem Mac, überall wo du tippen kannst. Kostenlos, ohne Konto, die 
 | `fn` zweimal | freies Sprechen ohne Halten, `⏎` fertig, `esc` verwerfen |
 | `⌃⌘V` | letztes Diktat nochmal einfügen |
 
+Hat fn bei dir vorher die Emojis geöffnet, liegen sie jetzt auf der Taste links neben der 1 (`^`). `^` schreibst du dann mit `⌘^`, `°` mit `⌘⇧^`.
+
+whispertext liegt im Dock und lässt sich mit `⌘Q` beenden. Wer Wispr Flow benutzt hat, findet Wörter, Textbausteine und Verlauf nach dem ersten Start in whispertext wieder.
+
 Fährst du mit der Maus auf den Strich oben in der Mitte, erscheinen zwei Symbole:
 
 - **Verlauf**: frühere Diktate. Klick zum Aufklappen und Anhören, `⌘F` sucht.
 - **Wörter**: Namen, Korrekturen und Textbausteine. `Gehört → Wird zu`. Ein langer Text unter einem kurzen Wort wird beim Diktieren dieses Worts eingefügt. whispertext lernt auch selbst dazu, wenn du einen diktierten Text korrigierst.
 
-Die Einführung lässt sich über das Symbol in der Menüleiste wiederholen.
+Die Einführung lässt sich im Menü whispertext → Einführung wiederholen nochmal durchgehen.
 
 ## Entwickeln
 
