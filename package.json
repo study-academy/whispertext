@@ -1,7 +1,7 @@
 {
   "name": "whispertext",
   "productName": "whispertext",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Diktieren in jeder App auf dem Mac: fn halten, sprechen, loslassen. Lokal mit Parakeet, optional geglättet mit dem eigenen Claude.",
   "private": true,
   "type": "module",
@@ -68,7 +68,7 @@
       ],
       "extendInfo": {
         "NSMicrophoneUsageDescription": "whispertext nimmt nur auf, während du diktierst. Erkannt wird auf diesem Mac.",
-        "LSUIElement": true
+        "LSUIElement": false
       },
       "artifactName": "whispertext-macOS-${arch}.${ext}"
     }

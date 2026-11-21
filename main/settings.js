@@ -27,6 +27,10 @@ export class Settings {
       haptics: values.haptics !== false,
       // The three keys of the intro were pressed once (main.js); until then the row shows them after the permissions.
       introDone: values.introDone === true,
+      // What was in Wispr Flow on this Mac came over once (main.js); never asked again.
+      wisprImported: values.wisprImported === true,
+      // How much came over, for the intro's words step (also when the intro is run again).
+      wisprCount: {words: Math.max(0, Number(values.wisprCount?.words) || 0), history: Math.max(0, Number(values.wisprCount?.history) || 0)},
       permissionSetup: {active: values.permissionSetup?.active !== false, completed: values.permissionSetup?.completed === true},
     };
   }

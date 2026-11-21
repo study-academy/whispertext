@@ -79,9 +79,17 @@ const iconButton = (name, label, action) => {
 const copied = (button, text) => { navigator.clipboard.writeText(text).catch(() => {}); button.innerHTML = ICONS.check; setTimeout(() => { button.innerHTML = ICONS.copy; }, 1100); };
 
 let openEntry = null, playing = null;
+// While searching, the list comes from the app: it also holds the dictations brought over from Wispr Flow.
+let found = null, searchRun = 0;
+async function search() {
+  const query = $('search-field').value.trim();
+  const run = ++searchRun;
+  found = query ? await api.historySearch(query).catch(() => null) : null;
+  if (run === searchRun) renderHistory();
+}
 function renderHistory() {
   const query = $('search-field').value.trim().toLowerCase();
-  const entries = data.history.filter(entry => entry.final && (!query || entry.final.toLowerCase().includes(query)));
+  const entries = (query && found ? found : data.history).filter(entry => entry.final && (!query || entry.final.toLowerCase().includes(query)));
   $('history').replaceChildren(...entries.slice(0, query ? 50 : 20).map(entry => {
     const row = document.createElement('div');
     row.className = 'line entry';
@@ -149,7 +157,7 @@ $('heard-field').addEventListener('keydown', event => { if (event.key === 'Enter
 
 /* ⌘F searches what is open; Esc clears the search, then closes. */
 function closeSearch() { if ($('search').hidden) return; $('search').hidden = true; $('search-field').value = ''; renderHistory(); renderWords(); }
-$('search-field').addEventListener('input', () => { renderHistory(); renderWords(); });
+$('search-field').addEventListener('input', () => { search(); renderWords(); });
 document.addEventListener('keydown', event => {
   if (event.key === 'f' && event.metaKey && state.mode === 'open') { event.preventDefault(); $('search').hidden = false; $('search-field').focus(); return; }
   if (event.key !== 'Escape') return;
@@ -178,7 +186,11 @@ function renderStep() {
   if (state.introOk) body.dataset.ok = ''; else delete body.dataset.ok;
   // The history and the words in the intro: the opened row with one line about it on top.
   $('intro-tip').hidden = !step?.tip;
-  if (step?.tip) $('intro-text').innerHTML = step.tip;
+  if (step?.tip) $('intro-text').innerHTML = key === 4 && state.imported?.history
+    ? `Das ist dein Verlauf.<br>Wir haben ${state.imported.history.toLocaleString('de-DE')} Diktate aus Wispr Flow übernommen. Hier findest du sie und alle neuen wieder.`
+    : key === 5 && state.imported?.words
+    ? `Das ist der Wörterbereich.<br>Wir haben ${state.imported.words} Wörter aus Wispr Flow erkannt und bereits in dein Wörterbuch importiert.<small>Auch längere Texte, die du oft brauchst, hier speichern und mit einem Wort einfügen.</small>`
+    : step.tip;
   // Each row of dots counts on its own (the intro line has its own copy).
   const dots = () => document.querySelectorAll('.progress').forEach(row => [...row.children].forEach((dot, index) => { dot.className = index < step.at ? 'done' : index === step.at ? 'now' : ''; }));
   if (!step) return;
@@ -216,6 +228,7 @@ const NOTICES = {
   'format-local': () => 'Ohne Glätten eingefügt',
   'refined': () => 'Geglättet',
   'done': () => 'Erledigt',
+  'imported': ({title}) => escapeText(title),
   // Only the words, a line each (17.11.2026: no "Gelernt:", no written "Zurück"); the round button beside the
   // strich takes them back.
   'learned': ({title}) => String(title ?? '').split('\n').map(line => `<span>${escapeText(line)}</span>`).join(''),
@@ -224,7 +237,7 @@ const NOTICES = {
   'correction-suggested': ({title}) => `Wörterbuchvorschlag: ${escapeText(title)}`,
 };
 // Receipts are a check only, hints are plain words, errors carry a red dot. No icon anywhere.
-const NOTICE_STYLE = {'done': 'ok', 'unlearned': 'plain', 'discarded': 'plain', 'refined': 'check', 'pasted-again': 'check', 'not-inserted': 'plain', 'nothing-to-paste': 'plain', 'nothing-selected': 'plain', 'no-speech': 'plain', 'model-loading': 'plain', 'secure-field': 'plain',
+const NOTICE_STYLE = {'done': 'ok', 'imported': 'ok', 'unlearned': 'plain', 'discarded': 'plain', 'refined': 'check', 'pasted-again': 'check', 'not-inserted': 'plain', 'nothing-to-paste': 'plain', 'nothing-selected': 'plain', 'no-speech': 'plain', 'model-loading': 'plain', 'secure-field': 'plain',
   'failed': 'error', 'mic-lost': 'error', 'microphone': 'error', 'accessibility': 'error'};
 let noticeTimer = null, noticeRule = null;
 function notice(kind, {reason, title, id} = {}) {
@@ -240,7 +253,7 @@ function notice(kind, {reason, title, id} = {}) {
   body.style.setProperty('--notice-width', `${Math.min(window.innerWidth - 24, Math.ceil($('notice-text').scrollWidth) + (style === 'error' ? 42 : 26))}px`);
   if (key === 'accessibility') api.permissionOpen();
   clearTimeout(noticeTimer);
-  if(key!=='mic-starting')noticeTimer = setTimeout(clearNotice, ['not-inserted', 'learned'].includes(key) ? 6000 : key === 'discarded' ? 8000 : key === 'done' ? 1600 : 3500);
+  if(key!=='mic-starting')noticeTimer = setTimeout(clearNotice, ['not-inserted', 'learned'].includes(key) ? 6000 : key === 'discarded' ? 8000 : key === 'done' ? 1600 : key === 'imported' ? 4000 : 3500);
   // A learned word can be taken back with a click on its message; a finished task's message brings you to it.
   // The round button beside the strich: a learned word goes back out, a thrown-away dictation is inserted after all.
   const back = (key === 'learned' && id) || key === 'discarded';

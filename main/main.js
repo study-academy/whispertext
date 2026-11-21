@@ -2,13 +2,17 @@
 // while one dictates; resting on it opens the same dark row with history and words. Local recognition with
 // Parakeet, local formatting, dictionary, snippets and learned corrections. No account, no AI service.
 // Taken from the Studymut desktop app (b77e3b4) with everything that is not dictation left out.
-import {app, BrowserWindow, ipcMain, screen, shell, clipboard, systemPreferences, session, dialog, Tray, Menu, nativeImage, globalShortcut} from 'electron';
+import {app, BrowserWindow, ipcMain, screen, shell, clipboard, systemPreferences, session, dialog, Menu, globalShortcut} from 'electron';
 import {spawnSync} from 'node:child_process';
-import {existsSync} from 'node:fs';
+import {existsSync, readFileSync, writeFileSync} from 'node:fs';
+import {readWispr, applyWispr} from './wispr-import.js';
+
+// "39 Wörter aus Wispr Flow" (and the dictations, when there were any).
+const importText = ({words, history}) => [words ? `${words} Wörter` : '', history ? `${history} Diktate` : ''].filter(Boolean).join(' und ') + ' aus Wispr Flow';
 import {join, dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {startStaticServer} from './static-server.js';
-import {DictationStore, Parakeet, reusesAhead} from './dictation.js';
+import {DictationStore, Recognizer, reusesAhead} from './dictation.js';
 import {PermissionFlow} from './permissions.js';
 import {notchLayout, inside} from '../core/notch-layout.js';
 import {Settings} from './settings.js';
@@ -94,7 +98,7 @@ class Notch {
 
   state() {
     return {version: app.getVersion(), mode: this.mode, page: this.page, hushed: !!this.hushed, intro: this.intro ?? 0, introOk: !!this.introOk,
-      missing: this.missing(), permissionState: this.permissionState, platform: process.platform};
+      missing: this.missing(), permissionState: this.permissionState, platform: process.platform, imported: this.imported ?? null};
   }
   // The permission a person still has to give, or null.
   missing() {
@@ -276,17 +280,38 @@ if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.whenReady().then(async () => {
     try {
-      // A menu bar app: no Dock icon, the strich and the menu bar icon are its ways in. It starts with the Mac.
-      if (process.platform === 'darwin') app.dock?.hide();
+      // A normal app with a Dock icon (a menu bar icon disappears behind the notch when the bar is full). The hidden
+      // test copy stays out of the Dock. It starts with the Mac.
+      if (process.platform === 'darwin' && HIDDEN_PREVIEW) app.dock?.hide();
       if (app.isPackaged && !testProfile) app.setLoginItemSettings({openAtLogin: true});
       const pathFile = join(app.getPath('userData'), 'shell-path.txt');
       process.env.PATH = knownPath(readCachedPath(pathFile));
       const settings = new Settings(join(app.getPath('userData'), 'settings.json'));
       const dictation = new DictationStore(join(app.getPath('userData'), 'dictation.json'));
+      // Dictations brought over from Wispr Flow: text only, kept apart from the own history (which keeps 100).
+      const importedFile = join(app.getPath('userData'), 'imported-history.json');
+      let imported = []; try { imported = JSON.parse(readFileSync(importedFile, 'utf8')); } catch {}
+      if (!Array.isArray(imported)) imported = [];
+      let importNotice = null;
+      // Once, on the first start: what the person has in Wispr Flow on this Mac comes along without a question.
+      if (!settings.get().wisprImported) {
+        try {
+          const found = await readWispr();
+          if (found) {
+            const counted = applyWispr(dictation, found);
+            imported = found.history.slice(0, 20000);
+            writeFileSync(importedFile, JSON.stringify(imported), {mode: 0o600});
+            if (counted.words || counted.history) importNotice = counted;
+          }
+        } catch (error) { console.error('wispr import', error.message); }
+        settings.update({wisprImported: true, wisprCount: importNotice ?? {words: 0, history: 0}});
+      }
+      const historyRows = () => [...dictation.data.history.map(({id, createdAt, app: name, final}) => ({id, createdAt, app: name, final})), ...imported]
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
       // The microphone follows the Mac's own choice (AirPods, a USB microphone), and noise is always filtered.
       if (dictation.data.deviceId || dictation.data.noiseSuppression === false) dictation.update({deviceId: '', noiseSuppression: true});
       const helper = name => app.isPackaged ? join(process.resourcesPath, name) : join(root, 'native', 'mac', 'bin', name.replace(/^whispertext/, 'studymut'));
-      const parakeet = new Parakeet(helper('whispertext-parakeet'), modelHome());
+      const parakeet = new Recognizer(helper('whispertext-parakeet'), modelHome());
       let dictationGeneration = 0;
       const targetCaptures = new Map();
       // The recognition of a speaking pause; when nothing more is said, the release uses it.
@@ -540,9 +565,14 @@ else {
       const captureMetrics = value => Object.fromEntries(['recordingStartedAt', 'stoppedAt', 'audioReadyAt', 'captureStartMs', 'captureConfigMs', 'micAcquireMs', 'graphPrepareMs', 'firstFrameAfterGraphMs'].filter(key => Number.isFinite(value?.[key]) && value[key] >= 0).map(key => [key, value[key]]));
       const recordings = new DictationAudio(app.getPath('userData'));
       // History and words for the row: the newest dictations, the person's words, corrections and snippets.
-      handle('dictation-state', async () => ({history: dictation.data.history.slice(0, 50).map(({id, createdAt, app: name, final}) => ({id, createdAt, app: name, final})),
+      handle('dictation-state', async () => ({history: historyRows().slice(0, 50),
         audio: [...await recordings.prune()], words: dictation.data.words, rules: dictation.data.rules.filter(rule => rule.source !== 'suggested'),
         snippets: dictation.data.snippets, modelStatus: parakeet.status, recovery}));
+      // ⌘F searches everything, the dictations from Wispr Flow too.
+      handle('history-search', query => {
+        const needle = String(query ?? '').trim().toLowerCase().slice(0, 200);
+        return needle ? historyRows().filter(entry => entry.final?.toLowerCase().includes(needle)).slice(0, 50) : historyRows().slice(0, 50);
+      });
       handle('dictation-config', () => ({language: 'auto', deviceId: '', noiseSuppression: true, modelStatus: parakeet.status, engine: 'parakeet'}));
       // Two lines: what is heard and what whispertext writes. Only the second: a word. A long or multi-line text: a
       // snippet said by its first line. Otherwise a correction.
@@ -643,25 +673,32 @@ else {
       // Diagnosis: remember the field in front as a dictation target, as the key does when it goes down.
       handle('target-now', async () => { const capture = keys.captureTarget(); const targetId = keys.targetId; targetCaptures.set(targetId, capture); await capture; return targetId; });
 
-      // Menu bar icon: the always reachable way to the history, the setup and quitting.
-      const icon = nativeImage.createFromPath(join(root, 'ui', 'assets', 'trayTemplate.png'));
-      icon.setTemplateImage(true);
-      const tray = HIDDEN_PREVIEW ? null : new Tray(icon);
-      tray?.setToolTip(NAME);
-      tray?.setContextMenu(Menu.buildFromTemplate([
-        {label: 'Verlauf', click: () => notch.setMode('open', 'history')},
-        {label: 'Wörter', click: () => notch.setMode('open', 'words')},
-        {label: 'Einführung wiederholen', click: () => { settings.update({introDone: false, permissionSetup: {active: true, completed: false}}); permissionFlow.refresh().then(() => { notch.intro = 0; checkSetup(); }); }},
-        {type: 'separator'},
-        {label: 'whispertext beenden', role: 'quit'},
+      // The app menu: the same few things, and Edit so ⌘C, ⌘V and ⌘A work in the fields. ⌘Q quits.
+      const again = () => { settings.update({introDone: false, permissionSetup: {active: true, completed: false}}); permissionFlow.refresh().then(() => { notch.intro = 0; checkSetup(); }); };
+      Menu.setApplicationMenu(Menu.buildFromTemplate([
+        {label: NAME, submenu: [
+          {label: 'Verlauf', click: () => openRow('history')},
+          {label: 'Wörter', click: () => openRow('words')},
+          {label: 'Einführung wiederholen', click: again},
+          {type: 'separator'}, {role: 'hide', label: 'whispertext ausblenden'}, {type: 'separator'},
+          {role: 'quit', label: 'whispertext beenden'},
+        ]},
+        {label: 'Bearbeiten', submenu: [{role: 'undo', label: 'Widerrufen'}, {role: 'redo', label: 'Wiederholen'}, {type: 'separator'},
+          {role: 'cut', label: 'Ausschneiden'}, {role: 'copy', label: 'Kopieren'}, {role: 'paste', label: 'Einsetzen'}, {role: 'selectAll', label: 'Alles auswählen'}]},
       ]));
+      app.dock?.setMenu(Menu.buildFromTemplate([{label: 'Verlauf', click: () => openRow('history')}, {label: 'Wörter', click: () => openRow('words')}]));
+      // During the setup and the intro a click on the Dock icon brings that step back instead.
+      const openRow = page => { if (notch.intro || notch.missing()) { checkSetup(); if (notch.mode === 'rest') notch.setMode('setup'); return; } notch.setMode('open', page); };
+      // The intro's words step says what came over from Wispr Flow; on an app whose intro was already done it is a notice.
+      notch.imported = settings.get().wisprCount;
+      if (importNotice && settings.get().introDone) { setTimeout(() => { notch.send('studymut:notice', {kind: 'imported', title: importText(importNotice)}); importNotice = null; }, 2500); }
       // Opening the app again (Finder, Spotlight) opens the history.
-      app.on('activate', () => notch.setMode('open', 'history'));
-      app.on('second-instance', () => notch.setMode('open', 'history'));
+      app.on('activate', () => openRow('history'));
+      app.on('second-instance', () => openRow('history'));
 
       // Quitting never asks: a dictation lasts seconds, and a hidden question once kept an update from closing the app.
       app.on('before-quit', () => {
-        permissionFlow.close(); practice.hide(); dim.hide(); backing.destroy(); dragHelper.destroy(); parakeet.stop(); globalShortcut.unregisterAll(); keys.stop(); clearInterval(notch.poll); server.close(); tray?.destroy();
+        permissionFlow.close(); practice.hide(); dim.hide(); backing.destroy(); dragHelper.destroy(); parakeet.stop(); globalShortcut.unregisterAll(); keys.stop(); clearInterval(notch.poll); server.close();
       });
       refreshPath(pathFile).catch(() => {});
     } catch (error) {

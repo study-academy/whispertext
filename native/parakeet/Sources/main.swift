@@ -39,13 +39,21 @@ while let line = readLine() {
             else {
                 let revision = try String(contentsOf: modelDirectory.appendingPathComponent(".fluidaudio-revision"), encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
                 guard revision == "7dd20fe6b1797d35f5e3307e8b1732d9a178edfe" else { throw NSError(domain:"model-revision",code:1) }
-                models = try AsrModels.loadLocal(from: modelDirectory, version: .v3, encoderPrecision: .int8V2)
+                // WT_UNITS=cpu: the copy that takes dictations while macOS prepares the Neural Engine once (dictation.js).
+                models = try AsrModels.loadLocal(from: modelDirectory, version: .v3, configuration: ProcessInfo.processInfo.environment["WT_UNITS"] == "cpu" ? MLModelConfigurationUtils.defaultConfiguration(computeUnits: .cpuOnly) : nil, encoderPrecision: .int8V2, encoderComputeUnits: ProcessInfo.processInfo.environment["WT_UNITS"] == "cpu" ? .cpuOnly : nil)
             }
             let loaded = AsrManager(config: .default)
             try await loaded.loadModels(models)
             manager = loaded
         }
-        if setup || warm { emit(["id": id, "ready": true]); continue }
+        if setup || warm {
+            // Loading is not enough: CoreML prepares the model for the Neural Engine on its first real prediction
+            // (50 s after a fresh install, 4 s on a normal launch, measured 21.11.2026). One second of silence runs
+            // through it here, at launch, so the person's first dictation is as fast as every later one.
+            var warmState = try TdtDecoderState()
+            _ = try? await manager!.transcribe([Float](repeating: 0, count: 16000), decoderState: &warmState)
+            emit(["id": id, "ready": true]); continue
+        }
         guard let encoded = request["audio"] as? String, let bytes = Data(base64Encoded: encoded), bytes.count % 4 == 0, bytes.count <= 16000 * 4 * 120 else { throw NSError(domain: "audio", code: 1) }
         let samples = bytes.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
         guard samples.allSatisfy({ $0.isFinite }) else { throw NSError(domain: "audio", code: 2) }

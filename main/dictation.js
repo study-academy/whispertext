@@ -145,10 +145,10 @@ export function reusesAhead(ahead, early = {}, cut = 0) {
 // One helper process keeps the model in memory. Requests are answered by id in order, so a warm-up at
 // launch and the first dictation can overlap; cancelling only drops the answer, the model stays loaded.
 export class Parakeet {
-  constructor(helper, directory) { this.helper=helper; this.directory=directory; this.child=null; this.requests=new Map(); this.id=0; this.inflight=null;this.waiting=[]; this.progress=null; this.onProgress=()=>{}; this.status=existsSync(helper) ? 'not-loaded' : 'helper-missing'; }
+  constructor(helper, directory, env = {}) { this.helper=helper; this.directory=directory; this.env=env; this.child=null; this.requests=new Map(); this.id=0; this.inflight=null;this.waiting=[]; this.progress=null; this.onProgress=()=>{}; this.status=existsSync(helper) ? 'not-loaded' : 'helper-missing'; }
   get pending() { return [...this.requests.values()].some(request => request.type === 'transcribe'); }
   #spawn() {
-    const child = spawn(this.helper,[this.directory],{stdio:['pipe','pipe','ignore']}); this.child=child;
+    const child = spawn(this.helper,[this.directory],{stdio:['pipe','pipe','ignore'], env: {...process.env, ...this.env}}); this.child=child;
     const fail = () => {
       if (this.child !== child) return;
       this.child=null; this.status='error';this.inflight=null;this.waiting=[];
@@ -211,4 +211,40 @@ export class Parakeet {
   // Drops waiting transcriptions; the helper finishes its current one and the model stays warm.
   cancel(message='Abgebrochen') { for (const [id,request] of this.requests) if (request.type === 'transcribe') this.#drop(id,message,false); }
   stop() { const child=this.child; this.child=null;this.inflight=null;this.waiting=[]; child?.kill(); for (const request of this.requests.values()) request.reject(new Error('Beendet')); this.requests.clear(); }
+}
+
+// The recogniser as the app sees it. The model normally runs on the Neural Engine, ready a second after launch. Only
+// after a fresh install or an update macOS first prepares it for the Neural Engine, once, for about 45 seconds
+// (measured 21.11.2026). Meanwhile a second copy on the processor (ready in 5 s, a little slower per dictation)
+// takes the dictations, so the very first one is not left waiting. It closes as soon as the real one is ready.
+export class Recognizer {
+  constructor(helper, directory, {bridgeAfterMs = 2500} = {}) {
+    this.main = new Parakeet(helper, directory);
+    this.helper = helper; this.directory = directory; this.bridgeAfterMs = bridgeAfterMs; this.bridge = null;
+  }
+  get status() { return this.main.status === 'ready' || this.bridge?.status === 'ready' ? 'ready' : this.main.status; }
+  get pending() { return this.main.pending || !!this.bridge?.pending; }
+  get progress() { return this.main.progress; }
+  set onProgress(callback) { this.main.onProgress = callback; }
+  #openBridge() {
+    if (this.bridge || this.main.status === 'ready') return this.bridge;
+    this.bridge = new Parakeet(this.helper, this.directory, {WT_UNITS: 'cpu'});
+    this.bridge.request('load').catch(() => this.#closeBridge(true));
+    return this.bridge;
+  }
+  #closeBridge(force = false) {
+    if (!this.bridge || (!force && this.bridge.pending)) return;
+    this.bridge.stop(); this.bridge = null;
+  }
+  request(type, audio) {
+    if (type !== 'transcribe') {
+      const timer = type === 'load' ? setTimeout(() => this.#openBridge(), this.bridgeAfterMs) : null;
+      return this.main.request(type, audio).finally(() => { clearTimeout(timer); this.#closeBridge(); });
+    }
+    const target = this.main.status === 'ready' ? this.main : this.#openBridge() ?? this.main;
+    return target.request('transcribe', audio).finally(() => { if (this.main.status === 'ready') this.#closeBridge(); });
+  }
+  warm(now) { return this.main.status === 'ready' ? this.main.warm(now) : false; }
+  cancel(message) { this.main.cancel(message); this.bridge?.cancel(message); }
+  stop() { this.main.stop(); this.#closeBridge(true); }
 }

@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('studymut', {
   interactionState: call('interaction-state'),
   dictationState: call('dictation-state'),
   dictationConfig: call('dictation-config'),
+  historySearch: call('history-search'),
   dictationAction: call('dictation-action'),
   dictationRetry: call('dictation-retry'),
   dictationAudio: call('dictation-audio'),
